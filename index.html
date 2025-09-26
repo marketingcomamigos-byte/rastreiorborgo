@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Rastreamento - Visualizador de Rotas</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        #map {
+            flex: 3;
+            height: 100%;
+        }
+        .sidebar {
+            flex: 1;
+            background-color: #f8f9fa;
+            padding: 15px;
+            overflow-y: auto;
+            border-left: 1px solid #ddd;
+            min-width: 300px;
+        }
+        .event-list {
+            margin-top: 20px;
+        }
+        .event-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .event-item:hover {
+            transform: translateX(5px);
+        }
+        .event-ignicao-ligada {
+            background-color: #d4edda;
+            border-left: 6px solid #28a745;
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+        }
+        .event-movendo {
+            background-color: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+        }
+        .event-parado {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
+        .event-ignicao-desligada {
+            background-color: #f8d7da;
+            border-left: 6px solid #dc3545;
+            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+        }
+        .file-input-container {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        .file-input-container input[type="file"] {
+            margin-bottom: 10px;
+            width: 100%;
+        }
+        .file-input-container button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .file-input-container button:hover {
+            background-color: #0056b3;
+        }
+        .summary-info {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .date-filter-container {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        .date-filter-container select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ced4da;
+        }
+        .highlighted {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+        .ignition-events {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f0f8ff;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .ignition-event-item {
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+            background-color: white;
+            cursor: pointer;
+        }
+        .ignition-on {
+            border-left: 4px solid #28a745;
+        }
+        .ignition-off {
+            border-left: 4px solid #dc3545;
+        }
+        .custom-popup {
+            font-family: Arial, sans-serif;
+            min-width: 200px;
+        }
+        .popup-header {
+            font-weight: bold;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .popup-content {
+            margin: 5px 0;
+        }
+        .popup-event-icon {
+            margin-right: 5px;
+        }
+        
+        /* Estilos para ícones menores */
+        .event-marker-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            font-size: 10px;
+        }
+        
+        .start-marker-icon, .end-marker-icon {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            font-size: 10px;
+        }
+        
+        .start-marker-icon {
+            background-color: #28a745;
+        }
+        
+        .end-marker-icon {
+            background-color: #dc3545;
+        }
+        
+        /* Estilo para o marcador de direção */
+        .direction-marker {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: #007bff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        .direction-arrow {
+            color: white;
+            font-size: 8px;
+            transform-origin: center;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Sistema de Rastreamento - Visualizador de Rotas</h1>
+    </header>
+    
+    <div class="container">
+        <div id="map"></div>
+        
+        <div class="sidebar">
+            <div class="file-input-container">
+                <input type="file" id="fileInput" accept=".xlsx, .xls">
+                <button id="loadData">Carregar Dados</button>
+            </div>
+            
+            <div class="date-filter-container">
+                <h3>Filtrar por Data</h3>
+                <select id="dateFilter">
+                    <option value="all">Todas as datas</option>
+                </select>
+            </div>
+            
+            <div class="summary-info">
+                <h3>Resumo da Viagem</h3>
+                <p><strong>Veículo:</strong> <span id="vehicleInfo">-</span></p>
+                <p><strong>Data:</strong> <span id="tripDate">-</span></p>
+                <p><strong>Saída:</strong> <span id="departureTime">-</span></p>
+                <p><strong>Chegada:</strong> <span id="arrivalTime">-</span></p>
+                <p><strong>Distância Percorrida:</strong> <span id="distance">-</span></p>
+            </div>
+            
+            <div class="ignition-events">
+                <h3>Eventos de Ignição</h3>
+                <div id="ignitionEventsContainer"></div>
+            </div>
+            
+            <div class="event-list">
+                <h3>Eventos da Viagem</h3>
+                <div id="eventsContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        // Variáveis globais
+        let map;
+        let routeLayer;
+        let markers = [];
+        let vehicleData = [];
+        let filteredData = [];
+        let uniqueDates = [];
+        
+        // Inicializar o mapa
+        function initMap() {
+            // Coordenadas iniciais (Maringá, PR)
+            map = L.map('map').setView([-23.4200, -51.9389], 13);
+            
+            // Adicionar camada do mapa
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        }
+        
+        // Processar arquivo Excel
+        function processExcelFile(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Supondo que os dados estão na primeira planilha
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // Converter para JSON
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    // Processar dados
+                    processData(jsonData);
+                } catch (error) {
+                    console.error('Erro ao processar arquivo:', error);
+                    alert('Erro ao processar o arquivo. Verifique se é um arquivo Excel válido.');
+                }
+            };
+            
+            reader.onerror = function() {
+                alert('Erro ao ler o arquivo.');
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+        
+        // Processar dados da planilha
+        function processData(data) {
+            // Limpar dados anteriores
+            vehicleData = [];
+            uniqueDates = [];
+            
+            if (!data || data.length === 0) {
+                alert("O arquivo está vazio ou não contém dados válidos.");
+                return;
+            }
+            
+            // Encontrar linha de cabeçalho
+            let headerRowIndex = -1;
+            for (let i = 0; i < data.length; i++) {
+                if (data[i] && data[i].length > 0) {
+                    // Verificar se a primeira célula contém "Veículo" ou algo similar
+                    const firstCell = data[i][0] ? data[i][0].toString().toLowerCase() : '';
+                    if (firstCell.includes('veículo') || firstCell.includes('vehicle')) {
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
+            }
+            
+            // Se não encontrou cabeçalho específico, usar primeira linha
+            if (headerRowIndex === -1 && data.length > 0) {
+                headerRowIndex = 0;
+            }
+            
+            if (headerRowIndex === -1) {
+                alert("Não foi possível encontrar o cabeçalho dos dados.");
+                return;
+            }
+            
+            // Extrair cabeçalhos
+            const headers = data[headerRowIndex].map(header => header ? header.toString().trim() : '');
+            
+            // Processar linhas de dados
+            for (let i = headerRowIndex + 1; i < data.length; i++) {
+                if (data[i] && data[i].length >= headers.length) {
+                    const row = {};
+                    
+                    for (let j = 0; j < headers.length; j++) {
+                        if (headers[j]) {
+                            row[headers[j]] = data[i][j];
+                        }
+                    }
+                    
+                    // Verificar se temos coordenadas válidas
+                    const lat = parseFloat(row["Latitude"]);
+                    const lng = parseFloat(row["Longitude"]);
+                    
+                    if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                        // Formatar data para o padrão brasileiro
+                        if (row["Data Atualização"]) {
+                            row["Data Atualização"] = formatToBrazilianDate(row["Data Atualização"]);
+                        }
+                        
+                        vehicleData.push(row);
+                        
+                        // Extrair data para filtro
+                        if (row["Data Atualização"]) {
+                            const dateStr = row["Data Atualização"].split(' ')[0];
+                            if (dateStr && !uniqueDates.includes(dateStr)) {
+                                uniqueDates.push(dateStr);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (vehicleData.length === 0) {
+                alert("Nenhum dado válido encontrado no arquivo. Verifique as colunas de Latitude e Longitude.");
+                return;
+            }
+            
+            // Ordenar datas
+            uniqueDates.sort();
+            
+            // Popular seletor de datas
+            populateDateFilter();
+            
+            // Exibir dados no mapa (todos inicialmente)
+            filterDataByDate('all');
+        }
+        
+        // Formatar data para o padrão brasileiro (DD/MM/AAAA)
+        function formatToBrazilianDate(dateString) {
+            if (!dateString) return '';
+            
+            // Verificar se já está no formato brasileiro
+            if (dateString.includes('/')) {
+                return dateString;
+            }
+            
+            // Tentar diferentes formatos de data
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) {
+                return dateString; // Retorna original se não for uma data válida
+            }
+            
+            // Formatar para DD/MM/AAAA HH:MM:SS
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            
+            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+        }
+        
+        // Popular seletor de datas
+        function populateDateFilter() {
+            const dateFilter = document.getElementById('dateFilter');
+            dateFilter.innerHTML = '<option value="all">Todas as datas</option>';
+            
+            uniqueDates.forEach(date => {
+                const option = document.createElement('option');
+                option.value = date;
+                option.textContent = date;
+                dateFilter.appendChild(option);
+            });
+            
+            // Adicionar evento de mudança
+            dateFilter.addEventListener('change', function() {
+                filterDataByDate(this.value);
+            });
+        }
+        
+        // Filtrar dados por data
+        function filterDataByDate(date) {
+            if (date === 'all') {
+                filteredData = [...vehicleData];
+            } else {
+                filteredData = vehicleData.filter(point => {
+                    if (point["Data Atualização"]) {
+                        return point["Data Atualização"].split(' ')[0] === date;
+                    }
+                    return false;
+                });
+            }
+            
+            // Exibir dados filtrados no mapa
+            displayDataOnMap();
+            
+            // Atualizar informações de resumo
+            updateSummaryInfo();
+            
+            // Exibir eventos
+            displayEvents();
+        }
+        
+        // Obter ícone para cada tipo de evento
+        function getEventIcon(eventType) {
+            let iconHtml, iconColor;
+            
+            switch(eventType) {
+                case "Ignição Ligada":
+                    iconHtml = '<i class="fas fa-power-off"></i>';
+                    iconColor = '#28a745';
+                    break;
+                case "Movendo":
+                    iconHtml = '<i class="fas fa-car"></i>';
+                    iconColor = '#17a2b8';
+                    break;
+                case "Parado":
+                    iconHtml = '<i class="fas fa-pause-circle"></i>';
+                    iconColor = '#ffc107';
+                    break;
+                case "Ignição Desligada":
+                    iconHtml = '<i class="fas fa-power-off"></i>';
+                    iconColor = '#dc3545';
+                    break;
+                default:
+                    // Para outros eventos, não mostrar ícone
+                    return null;
+            }
+            
+            return L.divIcon({
+                className: `event-marker-${eventType.replace(/\s+/g, '-').toLowerCase()}`,
+                html: `<div class="event-marker-icon" style="background-color: ${iconColor};">${iconHtml}</div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+        }
+        
+        // Obter ícone de direção baseado na velocidade - CORRIGIDO
+        function getDirectionIcon(point, index) {
+            // Extrair valor numérico da velocidade
+            const speedValue = extractSpeedValue(point["Velocidade"]);
+            
+            // Verificar se a velocidade é >= 1 km/h
+            if (speedValue >= 1) {
+                // Calcular direção baseado na posição atual e próxima
+                let rotation = 0;
+                
+                if (index < filteredData.length - 1) {
+                    const currentPoint = filteredData[index];
+                    const nextPoint = filteredData[index + 1];
+                    
+                    const currentLat = parseFloat(currentPoint["Latitude"]);
+                    const currentLng = parseFloat(currentPoint["Longitude"]);
+                    const nextLat = parseFloat(nextPoint["Latitude"]);
+                    const nextLng = parseFloat(nextPoint["Longitude"]);
+                    
+                    if (!isNaN(currentLat) && !isNaN(currentLng) && 
+                        !isNaN(nextLat) && !isNaN(nextLng)) {
+                        
+                        // Calcular ângulo entre os dois pontos
+                        const dx = nextLng - currentLng;
+                        const dy = nextLat - currentLat;
+                        
+                        // CORREÇÃO: Calcular o ângulo correto para a seta
+                        rotation = Math.atan2(dy, dx) * (180 / Math.PI);
+                        
+                        // A seta padrão aponta para cima (norte), então ajustamos
+                        // A rotação deve ser relativa ao norte (0° = norte)
+                        rotation = 90 - rotation;
+                        
+                        // Normalizar para 0-360
+                        if (rotation < 0) rotation += 360;
+                        if (rotation >= 360) rotation -= 360;
+                    }
+                }
+                
+                return L.divIcon({
+                    className: 'direction-marker-icon',
+                    html: `
+                        <div class="direction-marker">
+                            <i class="fas fa-arrow-up direction-arrow" style="transform: rotate(${rotation}deg);"></i>
+                        </div>
+                    `,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+            }
+            
+            return null;
+        }
+        
+        // Extrair valor numérico da velocidade
+        function extractSpeedValue(speedString) {
+            if (!speedString) return 0;
+            
+            // Remover unidades e espaços, converter para número
+            const numericValue = parseFloat(speedString.toString().replace(/[^\d,.-]/g, '').replace(',', '.'));
+            
+            return isNaN(numericValue) ? 0 : numericValue;
+        }
+        
+        // Criar conteúdo do popup
+        function createPopupContent(point) {
+            return `
+                <div class="custom-popup">
+                    <div class="popup-header">
+                        <span class="popup-event-icon">${getEventIconHtml(point["Evento"])}</span>
+                        ${point["Evento"] || "Evento"}
+                    </div>
+                    <div class="popup-content"><strong>Data/Hora:</strong> ${point["Data Atualização"] || "-"}</div>
+                    <div class="popup-content"><strong>Veículo:</strong> ${point["Veículo"] || "-"}</div>
+                    <div class="popup-content"><strong>Velocidade:</strong> ${point["Velocidade"] || "-"}</div>
+                    <div class="popup-content"><strong>Endereço:</strong> ${point["Endereço"] || "-"}</div>
+                    ${point["*Hodômetro"] ? `<div class="popup-content"><strong>Hodômetro:</strong> ${point["*Hodômetro"]}</div>` : ""}
+                </div>
+            `;
+        }
+        
+        // Obter ícone HTML para o popup
+        function getEventIconHtml(eventType) {
+            switch(eventType) {
+                case "Ignição Ligada":
+                    return '<i class="fas fa-power-off" style="color: #28a745;"></i>';
+                case "Movendo":
+                    return '<i class="fas fa-car" style="color: #17a2b8;"></i>';
+                case "Parado":
+                    return '<i class="fas fa-pause-circle" style="color: #ffc107;"></i>';
+                case "Ignição Desligada":
+                    return '<i class="fas fa-power-off" style="color: #dc3545;"></i>';
+                default:
+                    return '<i class="fas fa-map-marker-alt" style="color: #007bff;"></i>';
+            }
+        }
+        
+        // Exibir dados no mapa
+        function displayDataOnMap() {
+            // Limpar mapa
+            if (routeLayer) {
+                map.removeLayer(routeLayer);
+            }
+            
+            markers.forEach(marker => {
+                map.removeLayer(marker);
+            });
+            markers = [];
+            
+            if (filteredData.length === 0) return;
+            
+            // Criar array de coordenadas para a rota
+            const routeCoordinates = [];
+            
+            // Processar cada ponto de dados
+            filteredData.forEach((point, index) => {
+                const lat = parseFloat(point["Latitude"]);
+                const lng = parseFloat(point["Longitude"]);
+                
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    routeCoordinates.push([lat, lng]);
+                    
+                    // Determinar o tipo de evento
+                    let eventType = point["Evento"] || "";
+                    
+                    // Criar marcador apenas para os 4 tipos de eventos específicos
+                    if (eventType === "Ignição Ligada" || eventType === "Movendo" || 
+                        eventType === "Parado" || eventType === "Ignição Desligada") {
+                        
+                        const icon = getEventIcon(eventType);
+                        if (icon) {
+                            const marker = L.marker([lat, lng], { icon: icon })
+                                .bindPopup(createPopupContent(point));
+                            
+                            marker.addTo(map);
+                            markers.push(marker);
+                        }
+                    }
+                    
+                    // Adicionar marcador de direção se a velocidade for >= 1 km/h
+                    const directionIcon = getDirectionIcon(point, index);
+                    if (directionIcon) {
+                        const directionMarker = L.marker([lat, lng], { icon: directionIcon })
+                            .bindPopup(`
+                                <div class="custom-popup">
+                                    <div class="popup-header">
+                                        <i class="fas fa-arrow-up" style="color: #007bff;"></i>
+                                        Movimento
+                                    </div>
+                                    <div class="popup-content"><strong>Velocidade:</strong> ${point["Velocidade"] || "-"}</div>
+                                    <div class="popup-content"><strong>Data/Hora:</strong> ${point["Data Atualização"] || "-"}</div>
+                                </div>
+                            `);
+                        
+                        directionMarker.addTo(map);
+                        markers.push(directionMarker);
+                    }
+                }
+            });
+            
+            // Adicionar linha da rota ao mapa
+            if (routeCoordinates.length > 1) {
+                routeLayer = L.polyline(routeCoordinates, {
+                    color: 'blue',
+                    weight: 4,
+                    opacity: 0.7
+                }).addTo(map);
+                
+                // Ajustar visualização do mapa para mostrar toda a rota
+                map.fitBounds(routeLayer.getBounds());
+            }
+            
+            // Adicionar marcador de início (apenas se não houver muitos eventos)
+            if (routeCoordinates.length > 0 && markers.length < 20) {
+                const startIcon = L.divIcon({
+                    className: 'start-marker',
+                    html: '<div class="start-marker-icon"><i class="fas fa-play"></i></div>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+                
+                const startMarker = L.marker(routeCoordinates[0], { icon: startIcon })
+                    .bindPopup('<strong>Início da Rota</strong>')
+                    .addTo(map);
+                markers.push(startMarker);
+            }
+            
+            // Adicionar marcador de fim (apenas se não houver muitos eventos)
+            if (routeCoordinates.length > 0 && markers.length < 20) {
+                const endIcon = L.divIcon({
+                    className: 'end-marker',
+                    html: '<div class="end-marker-icon"><i class="fas fa-stop"></i></div>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+                
+                const endMarker = L.marker(routeCoordinates[routeCoordinates.length - 1], { icon: endIcon })
+                    .bindPopup('<strong>Fim da Rota</strong>')
+                    .addTo(map);
+                markers.push(endMarker);
+            }
+        }
+        
+        // Atualizar informações de resumo
+        function updateSummaryInfo() {
+            if (filteredData.length === 0) {
+                document.getElementById('vehicleInfo').textContent = '-';
+                document.getElementById('tripDate').textContent = '-';
+                document.getElementById('departureTime').textContent = '-';
+                document.getElementById('arrivalTime').textContent = '-';
+                document.getElementById('distance').textContent = '-';
+                return;
+            }
+            
+            const firstPoint = filteredData[0];
+            const lastPoint = filteredData[filteredData.length - 1];
+            
+            document.getElementById('vehicleInfo').textContent = firstPoint["Veículo"] || '-';
+            
+            // Se estamos filtrando por uma data específica, usar essa data
+            const dateFilter = document.getElementById('dateFilter');
+            if (dateFilter.value !== 'all') {
+                document.getElementById('tripDate').textContent = dateFilter.value;
+            } else {
+                document.getElementById('tripDate').textContent = firstPoint["Data Atualização"] ? 
+                    firstPoint["Data Atualização"].split(' ')[0] : '-';
+            }
+            
+            document.getElementById('departureTime').textContent = firstPoint["Data Atualização"] || '-';
+            document.getElementById('arrivalTime').textContent = lastPoint["Data Atualização"] || '-';
+            
+            // Calcular distância percorrida (aproximada)
+            if (firstPoint["*Hodômetro"] && lastPoint["*Hodômetro"]) {
+                const startOdometer = parseFloat(firstPoint["*Hodômetro"].toString().replace(' km', '').replace(',', '.'));
+                const endOdometer = parseFloat(lastPoint["*Hodômetro"].toString().replace(' km', '').replace(',', '.'));
+                
+                if (!isNaN(startOdometer) && !isNaN(endOdometer)) {
+                    const distance = (endOdometer - startOdometer).toFixed(2);
+                    document.getElementById('distance').textContent = `${distance} km`;
+                } else {
+                    document.getElementById('distance').textContent = '-';
+                }
+            } else {
+                document.getElementById('distance').textContent = '-';
+            }
+        }
+        
+        // Exibir eventos na barra lateral
+        function displayEvents() {
+            const eventsContainer = document.getElementById('eventsContainer');
+            const ignitionEventsContainer = document.getElementById('ignitionEventsContainer');
+            
+            eventsContainer.innerHTML = '';
+            ignitionEventsContainer.innerHTML = '';
+            
+            // Filtrar pontos com eventos
+            const eventPoints = filteredData.filter(point => point["Evento"]);
+            
+            if (eventPoints.length === 0) {
+                eventsContainer.innerHTML = '<p>Nenhum evento registrado.</p>';
+                ignitionEventsContainer.innerHTML = '<p>Nenhum evento de ignição registrado.</p>';
+                return;
+            }
+            
+            // Separar eventos de ignição dos demais
+            const ignitionEvents = eventPoints.filter(point => 
+                point["Evento"] === "Ignição Ligada" || point["Evento"] === "Ignição Desligada"
+            );
+            
+            const otherEvents = eventPoints.filter(point => 
+                point["Evento"] !== "Ignição Ligada" && point["Evento"] !== "Ignição Desligada"
+            );
+            
+            // Exibir eventos de ignição em destaque
+            if (ignitionEvents.length > 0) {
+                ignitionEvents.forEach((point, index) => {
+                    const eventItem = document.createElement('div');
+                    eventItem.className = `ignition-event-item ${point["Evento"] === "Ignição Ligada" ? "ignition-on" : "ignition-off"}`;
+                    
+                    eventItem.innerHTML = `
+                        <strong>${point["Evento"]}</strong><br>
+                        <small>${point["Data Atualização"]}</small><br>
+                        <small>${point["Endereço"] || "Endereço não disponível"}</small>
+                    `;
+                    
+                    eventItem.addEventListener('click', () => {
+                        const lat = parseFloat(point["Latitude"]);
+                        const lng = parseFloat(point["Longitude"]);
+                        
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            map.setView([lat, lng], 15);
+                            
+                            // Abrir popup do marcador correspondente
+                            markers.forEach(marker => {
+                                const markerLatLng = marker.getLatLng();
+                                if (markerLatLng.lat === lat && markerLatLng.lng === lng) {
+                                    marker.openPopup();
+                                }
+                            });
+                        }
+                    });
+                    
+                    ignitionEventsContainer.appendChild(eventItem);
+                });
+            } else {
+                ignitionEventsContainer.innerHTML = '<p>Nenhum evento de ignição registrado.</p>';
+            }
+            
+            // Exibir outros eventos
+            if (otherEvents.length > 0) {
+                otherEvents.forEach((point, index) => {
+                    const eventItem = document.createElement('div');
+                    eventItem.className = `event-item event-${getEventClass(point["Evento"])}`;
+                    
+                    eventItem.innerHTML = `
+                        <strong>${point["Evento"]}</strong><br>
+                        <small>${point["Data Atualização"]}</small><br>
+                        <small>${point["Endereço"] || "Endereço não disponível"}</small>
+                    `;
+                    
+                    eventItem.addEventListener('click', () => {
+                        const lat = parseFloat(point["Latitude"]);
+                        const lng = parseFloat(point["Longitude"]);
+                        
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            map.setView([lat, lng], 15);
+                            
+                            // Abrir popup do marcador correspondente
+                            markers.forEach(marker => {
+                                const markerLatLng = marker.getLatLng();
+                                if (markerLatLng.lat === lat && markerLatLng.lng === lng) {
+                                    marker.openPopup();
+                                }
+                            });
+                        }
+                    });
+                    
+                    eventsContainer.appendChild(eventItem);
+                });
+            } else {
+                eventsContainer.innerHTML = '<p>Nenhum outro evento registrado.</p>';
+            }
+        }
+        
+        // Obter classe CSS para o evento
+        function getEventClass(eventName) {
+            switch(eventName) {
+                case "Ignição Ligada": return "ignicao-ligada";
+                case "Movendo": return "movendo";
+                case "Parado": return "parado";
+                case "Ignição Desligada": return "ignicao-desligada";
+                default: return "";
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('loadData').addEventListener('click', function() {
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput.files.length > 0) {
+                processExcelFile(fileInput.files[0]);
+            } else {
+                alert('Por favor, selecione um arquivo Excel.');
+            }
+        });
+        
+        // Inicializar o mapa quando a página carregar
+        window.onload = initMap;
+    </script>
+</body>
+</html>
