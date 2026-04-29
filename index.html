@@ -2,24 +2,58 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Rastreamento - Visualizador de Rotas</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Rogério Borgo - Sistema de Rastreamento e Rotas</title>
+    <!-- Leaflet CSS + JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- SheetJS para ler Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: #eef2f7;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            height: 100vh;
+            overflow: hidden;
         }
-        header {
-            background-color: #2c3e50;
+        .top-bar {
+            background: linear-gradient(135deg, #0b2b40, #123e5a);
             color: white;
-            padding: 15px;
-            text-align: center;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        .logo-area h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+        .logo-area p {
+            font-size: 0.75rem;
+            opacity: 0.85;
+            margin-top: 4px;
+        }
+        .status-badge {
+            background: rgba(0,0,0,0.3);
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 0.8rem;
+        }
+        .status-badge i {
+            margin-right: 6px;
         }
         .container {
             display: flex;
@@ -29,145 +63,132 @@
         #map {
             flex: 3;
             height: 100%;
+            background-color: #d4e3ec;
         }
         .sidebar {
-            flex: 1;
-            background-color: #f8f9fa;
-            padding: 15px;
+            width: 360px;
+            background: #ffffff;
+            border-left: 1px solid #d4dee5;
+            display: flex;
+            flex-direction: column;
             overflow-y: auto;
-            border-left: 1px solid #ddd;
-            min-width: 300px;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.05);
         }
-        .event-list {
-            margin-top: 20px;
+        .panel {
+            padding: 16px 18px;
+            border-bottom: 1px solid #e9edf2;
         }
-        .event-item {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: transform 0.2s;
+        .upload-area {
+            background: #f4f9fe;
+            border-radius: 20px;
+            margin: 12px;
+            padding: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .event-item:hover {
-            transform: translateX(5px);
-        }
-        .event-ignicao-ligada {
-            background-color: #d4edda;
-            border-left: 6px solid #28a745;
-            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
-        }
-        .event-movendo {
-            background-color: #d1ecf1;
-            border-left: 4px solid #17a2b8;
-        }
-        .event-parado {
-            background-color: #fff3cd;
-            border-left: 4px solid #ffc107;
-        }
-        .event-ignicao-desligada {
-            background-color: #f8d7da;
-            border-left: 6px solid #dc3545;
-            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
-        }
-        .file-input-container {
-            margin-bottom: 15px;
-            padding: 10px;
-            background-color: #e9ecef;
-            border-radius: 5px;
-        }
-        .file-input-container input[type="file"] {
-            margin-bottom: 10px;
-            width: 100%;
-        }
-        .file-input-container button {
-            width: 100%;
-            padding: 10px;
-            background-color: #007bff;
+        .btn {
+            background: #1f6392;
             color: white;
             border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .file-input-container button:hover {
-            background-color: #0056b3;
-        }
-        .summary-info {
-            background-color: #e9ecef;
             padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-        }
-        .date-filter-container {
-            margin-bottom: 15px;
-            padding: 10px;
-            background-color: #e9ecef;
-            border-radius: 5px;
-        }
-        .date-filter-container select {
+            border-radius: 40px;
+            font-weight: bold;
             width: 100%;
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #ced4da;
-        }
-        .highlighted {
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
-        }
-        .ignition-events {
-            margin-top: 15px;
-            padding: 10px;
-            background-color: #f0f8ff;
-            border-radius: 5px;
-            border-left: 4px solid #007bff;
-        }
-        .ignition-event-item {
-            padding: 8px;
-            margin: 5px 0;
-            border-radius: 4px;
-            background-color: white;
             cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }
+        .btn:hover {
+            background: #0e4a6f;
+            transform: scale(0.98);
+        }
+        .filter-box {
+            margin-top: 12px;
+        }
+        select {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 30px;
+            border: 1px solid #cbd5e1;
+            background: white;
+            font-size: 0.85rem;
+        }
+        .summary-card {
+            background: #f0f4f9;
+            border-radius: 20px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+        .summary-card p {
+            margin: 6px 0;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 4px solid #1f6392;
+            padding-left: 10px;
+        }
+        .event-list, .ignition-list {
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .event-item, .ignition-item {
+            background: #f8fafc;
+            margin: 8px 0;
+            padding: 8px 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: 0.1s;
+            font-size: 0.8rem;
+            border-left: 4px solid #7c8b9c;
+        }
+        .event-item:hover, .ignition-item:hover {
+            background: #eef2ff;
+            transform: translateX(3px);
         }
         .ignition-on {
-            border-left: 4px solid #28a745;
+            border-left-color: #2b8c4a;
+            background: #e6f4ea;
         }
         .ignition-off {
-            border-left: 4px solid #dc3545;
+            border-left-color: #d9534f;
+            background: #fee9e8;
         }
-        .custom-popup {
-            font-family: Arial, sans-serif;
-            min-width: 200px;
+        .event-movendo {
+            border-left-color: #17a2b8;
         }
-        .popup-header {
-            font-weight: bold;
-            margin-bottom: 8px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
+        .event-parado {
+            border-left-color: #ffc107;
         }
-        .popup-content {
-            margin: 5px 0;
+        .small-text {
+            font-size: 0.7rem;
+            color: #5c6f87;
         }
-        .popup-event-icon {
-            margin-right: 5px;
+        .custom-marker {
+            background: transparent;
+            border: none;
         }
-        
-        /* Estilos para ícones menores */
-        .event-marker-icon {
-            width: 20px;
-            height: 20px;
+        .marker-icon {
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             border: 2px solid white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-            font-size: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            font-size: 13px;
         }
-        
-        .start-marker-icon, .end-marker-icon {
+        .direction-marker {
+            background: #1f6392;
             width: 22px;
             height: 22px;
             border-radius: 50%;
@@ -176,686 +197,544 @@
             justify-content: center;
             border: 2px solid white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            cursor: pointer;
+        }
+        .arrow {
+            color: white;
             font-size: 10px;
         }
-        
-        .start-marker-icon {
-            background-color: #28a745;
+        .legend-info {
+            margin-top: 8px;
+            font-size: 0.7rem;
+            background: #fff6e0;
+            padding: 6px;
+            border-radius: 14px;
+            text-align: center;
         }
-        
-        .end-marker-icon {
-            background-color: #dc3545;
+        footer {
+            font-size: 0.65rem;
+            text-align: center;
+            padding: 6px;
+            background: #f1f5f9;
+            color: #4a627a;
+            border-top: 1px solid #dee2e6;
         }
-        
-        /* Estilo para o marcador de direção */
-        .direction-marker {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background-color: #007bff;
+        .loading-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1f6392;
+            color: white;
+            padding: 10px 18px;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            z-index: 2000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
             display: flex;
             align-items: center;
-            justify-content: center;
-            border: 2px solid white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            gap: 10px;
         }
-        
-        .direction-arrow {
-            color: white;
-            font-size: 8px;
-            transform-origin: center;
+        .error-toast {
+            background: #d9534f;
+        }
+        .hidden {
+            display: none;
+        }
+        /* Popup melhorado */
+        .custom-popup .popup-content {
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+        .custom-popup strong {
+            color: #1f6392;
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Sistema de Rastreamento - Visualizador de Rotas</h1>
-    </header>
-    
-    <div class="container">
-        <div id="map"></div>
-        
-        <div class="sidebar">
-            <div class="file-input-container">
-                <input type="file" id="fileInput" accept=".xlsx, .xls">
-                <button id="loadData">Carregar Dados</button>
+<div class="top-bar">
+    <div class="logo-area">
+        <h1><i class="fas fa-map-marked-alt"></i> Rogério Borgo Rastreamento</h1>
+        <p>Sistema de Logística & Rotas | Gestão Inteligente</p>
+    </div>
+    <div class="status-badge">
+        <i class="fas fa-check-circle"></i> Mapa Online
+    </div>
+</div>
+
+<div class="container">
+    <div id="map"></div>
+    <div class="sidebar">
+        <div class="upload-area">
+            <input type="file" id="excelInput" accept=".xlsx, .xls" style="margin-bottom: 10px; width: 100%;">
+            <button id="loadBtn" class="btn"><i class="fas fa-chart-line"></i> Carregar Relatório Analítico</button>
+            <div class="filter-box">
+                <label><i class="fas fa-calendar-week"></i> Filtrar por data:</label>
+                <select id="dateSelect"><option value="all">Todas as datas</option></select>
             </div>
-            
-            <div class="date-filter-container">
-                <h3>Filtrar por Data</h3>
-                <select id="dateFilter">
-                    <option value="all">Todas as datas</option>
-                </select>
-            </div>
-            
-            <div class="summary-info">
-                <h3>Resumo da Viagem</h3>
-                <p><strong>Veículo:</strong> <span id="vehicleInfo">-</span></p>
-                <p><strong>Data:</strong> <span id="tripDate">-</span></p>
-                <p><strong>Saída:</strong> <span id="departureTime">-</span></p>
-                <p><strong>Chegada:</strong> <span id="arrivalTime">-</span></p>
-                <p><strong>Distância Percorrida:</strong> <span id="distance">-</span></p>
-            </div>
-            
-            <div class="ignition-events">
-                <h3>Eventos de Ignição</h3>
-                <div id="ignitionEventsContainer"></div>
-            </div>
-            
-            <div class="event-list">
-                <h3>Eventos da Viagem</h3>
-                <div id="eventsContainer"></div>
+            <div class="legend-info">
+                <i class="fas fa-car" style="color:#17a2b8;"></i> Movendo &nbsp;|&nbsp;
+                <i class="fas fa-pause-circle" style="color:#ffc107;"></i> Parado &nbsp;|&nbsp;
+                <i class="fas fa-power-off" style="color:#2b8c4a;"></i> Ignição Ligada &nbsp;|&nbsp;
+                <i class="fas fa-power-off" style="color:#d9534f;"></i> Ignição Desligada &nbsp;|&nbsp;
+                <i class="fas fa-arrow-up" style="color:#1f6392;"></i> Direção (clique)
             </div>
         </div>
-    </div>
 
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script>
-        // Variáveis globais
-        let map;
-        let routeLayer;
-        let markers = [];
-        let vehicleData = [];
-        let filteredData = [];
-        let uniqueDates = [];
+        <div class="panel">
+            <h3><i class="fas fa-info-circle"></i> Resumo da Rota</h3>
+            <div class="summary-card">
+                <p><span>Veículo:</span> <strong id="veiculoInfo">-</strong></p>
+                <p><span>Data referência:</span> <strong id="dataViagem">-</strong></p>
+                <p><span>Saída (primeiro ponto):</span> <span id="horaSaida">-</span></p>
+                <p><span>Chegada (último ponto):</span> <span id="horaChegada">-</span></p>
+                <p><span>Distância (odômetro):</span> <strong id="distanciaKm">-</strong></p>
+                <p><span>Pontos na rota:</span> <span id="totalPontos">0</span></p>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3><i class="fas fa-car-battery"></i> Ignição (Liga/Desliga)</h3>
+            <div id="ignitionContainer" class="ignition-list">-</div>
+        </div>
+
+        <div class="panel">
+            <h3><i class="fas fa-road"></i> Movimento / Paradas</h3>
+            <div id="eventsContainer" class="event-list">-</div>
+        </div>
+    </div>
+</div>
+<footer>
+    <i class="fas fa-map"></i> Dados de rastreamento | Powered by CartoDB & Leaflet | Rogério Borgo
+</footer>
+
+<div id="loadingToast" class="loading-toast hidden">
+    <i class="fas fa-spinner fa-pulse"></i> Processando dados...
+</div>
+
+<script>
+    // ================================================================
+    //  MAPA - USANDO TILE PROVIDER QUE NÃO EXIGE REFERER (CartoDB)
+    // ================================================================
+    let map;
+    let allPoints = [];
+    let filteredPoints = [];
+    let markersLayer = [];
+    let routePolyline = null;
+    let uniqueDates = [];
+
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('loadingToast');
+        toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-triangle' : 'fa-spinner fa-pulse'}"></i> ${message}`;
+        toast.classList.remove('hidden');
+        if (!isError) {
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        } else {
+            setTimeout(() => toast.classList.add('hidden'), 5000);
+        }
+    }
+
+    function initMap() {
+        const centerLat = -23.379;
+        const centerLng = -51.959;
         
-        // Inicializar o mapa
-        function initMap() {
-            // Coordenadas iniciais (Maringá, PR)
-            map = L.map('map').setView([-23.4200, -51.9389], 13);
-            
-            // Adicionar camada do mapa
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
+        map = L.map('map').setView([centerLat, centerLng], 13);
+        
+        // Provedor CartoDB (não exige Referer, funciona localmente)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19,
+            minZoom: 3
+        }).addTo(map);
+        
+        setTimeout(() => {
+            L.popup()
+                .setLatLng([centerLat, centerLng])
+                .setContent('<b>✅ Sistema Rogério Borgo</b><br>Carregue o relatório Excel para visualizar a rota.<br><i class="fas fa-arrow-up"></i> Clique nas setas azuis para ver data/hora.')
+                .openOn(map);
+        }, 500);
+    }
+
+    // ================================================================
+    //  FUNÇÕES DE LEITURA DO EXCEL
+    // ================================================================
+    function findDataHeaderRow(rows) {
+        for (let i = 0; i < Math.min(rows.length, 50); i++) {
+            const row = rows[i];
+            if (!row || !Array.isArray(row)) continue;
+            const hasLat = row.some(cell => cell && cell.toString().toLowerCase().includes('latitude'));
+            const hasLng = row.some(cell => cell && cell.toString().toLowerCase().includes('longitude'));
+            if (hasLat && hasLng) return i;
+        }
+        for (let i = 0; i < Math.min(rows.length, 40); i++) {
+            if (rows[i] && rows[i][0] && rows[i][0].toString().includes('Data Atualização')) return i;
+        }
+        return 9;
+    }
+
+    function parseExcelData(workbook) {
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+        
+        if (!rawRows || rawRows.length < 10) {
+            throw new Error("Arquivo sem dados suficientes (menos de 10 linhas).");
         }
         
-        // Processar arquivo Excel
-        function processExcelFile(file) {
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    // Supondo que os dados estão na primeira planilha
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    
-                    // Converter para JSON
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                    
-                    // Processar dados
-                    processData(jsonData);
-                } catch (error) {
-                    console.error('Erro ao processar arquivo:', error);
-                    alert('Erro ao processar o arquivo. Verifique se é um arquivo Excel válido.');
-                }
-            };
-            
-            reader.onerror = function() {
-                alert('Erro ao ler o arquivo.');
-            };
-            
-            reader.readAsArrayBuffer(file);
+        const headerIdx = findDataHeaderRow(rawRows);
+        const headers = rawRows[headerIdx].map(h => (h ? h.toString().trim() : ""));
+        
+        const latIdx = headers.findIndex(h => h && h.toLowerCase().includes('latitude'));
+        const lngIdx = headers.findIndex(h => h && h.toLowerCase().includes('longitude'));
+        const dateIdx = headers.findIndex(h => h && (h.includes('Data Atualização') || h.includes('Data')));
+        const eventIdx = headers.findIndex(h => h && h.includes('Evento'));
+        const speedIdx = headers.findIndex(h => h && h.includes('Velocidade'));
+        const odomIdx = headers.findIndex(h => h && h.includes('Hodômetro'));
+        const addressIdx = headers.findIndex(h => h && h.includes('Endereço'));
+        const vehicleIdx = headers.findIndex(h => h && (h.toLowerCase().includes('veículo') || h.includes('Veiculo')));
+        
+        if (latIdx === -1 || lngIdx === -1) {
+            throw new Error("Colunas 'Latitude' e 'Longitude' não encontradas no arquivo.");
         }
         
-        // Processar dados da planilha
-        function processData(data) {
-            // Limpar dados anteriores
-            vehicleData = [];
-            uniqueDates = [];
+        const points = [];
+        for (let i = headerIdx + 1; i < rawRows.length; i++) {
+            const row = rawRows[i];
+            if (!row || row.length < 2) continue;
             
-            if (!data || data.length === 0) {
-                alert("O arquivo está vazio ou não contém dados válidos.");
-                return;
+            const lat = parseFloat(row[latIdx]);
+            const lng = parseFloat(row[lngIdx]);
+            if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) continue;
+            
+            let dataHora = row[dateIdx] ? row[dateIdx].toString().trim() : "";
+            
+            if (dataHora && !isNaN(dataHora) && typeof dataHora !== 'string') {
+                const excelDate = new Date(Math.round((dataHora - 25569) * 86400 * 1000));
+                dataHora = excelDate.toLocaleString('pt-BR', { timeZone: 'UTC' }).replace(',', '');
+            } else if (dataHora && dataHora.includes('T')) {
+                dataHora = dataHora.replace('T', ' ').substring(0, 19);
             }
             
-            // Encontrar linha de cabeçalho
-            let headerRowIndex = -1;
-            for (let i = 0; i < data.length; i++) {
-                if (data[i] && data[i].length > 0) {
-                    // Verificar se a primeira célula contém "Veículo" ou algo similar
-                    const firstCell = data[i][0] ? data[i][0].toString().toLowerCase() : '';
-                    if (firstCell.includes('veículo') || firstCell.includes('vehicle')) {
-                        headerRowIndex = i;
-                        break;
-                    }
-                }
-            }
+            const evento = row[eventIdx] ? row[eventIdx].toString().trim() : "";
+            const velocidade = row[speedIdx] ? row[speedIdx].toString() : "0 km/h";
+            const hodometro = row[odomIdx] ? row[odomIdx].toString() : "";
+            const endereco = row[addressIdx] ? row[addressIdx].toString() : "";
+            const veiculo = (vehicleIdx !== -1 && row[vehicleIdx]) ? row[vehicleIdx].toString() : "Rogério Borgo - RB";
             
-            // Se não encontrou cabeçalho específico, usar primeira linha
-            if (headerRowIndex === -1 && data.length > 0) {
-                headerRowIndex = 0;
-            }
-            
-            if (headerRowIndex === -1) {
-                alert("Não foi possível encontrar o cabeçalho dos dados.");
-                return;
-            }
-            
-            // Extrair cabeçalhos
-            const headers = data[headerRowIndex].map(header => header ? header.toString().trim() : '');
-            
-            // Processar linhas de dados
-            for (let i = headerRowIndex + 1; i < data.length; i++) {
-                if (data[i] && data[i].length >= headers.length) {
-                    const row = {};
-                    
-                    for (let j = 0; j < headers.length; j++) {
-                        if (headers[j]) {
-                            row[headers[j]] = data[i][j];
-                        }
-                    }
-                    
-                    // Verificar se temos coordenadas válidas
-                    const lat = parseFloat(row["Latitude"]);
-                    const lng = parseFloat(row["Longitude"]);
-                    
-                    if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-                        // Formatar data para o padrão brasileiro
-                        if (row["Data Atualização"]) {
-                            row["Data Atualização"] = formatToBrazilianDate(row["Data Atualização"]);
-                        }
-                        
-                        vehicleData.push(row);
-                        
-                        // Extrair data para filtro
-                        if (row["Data Atualização"]) {
-                            const dateStr = row["Data Atualização"].split(' ')[0];
-                            if (dateStr && !uniqueDates.includes(dateStr)) {
-                                uniqueDates.push(dateStr);
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if (vehicleData.length === 0) {
-                alert("Nenhum dado válido encontrado no arquivo. Verifique as colunas de Latitude e Longitude.");
-                return;
-            }
-            
-            // Ordenar datas
-            uniqueDates.sort();
-            
-            // Popular seletor de datas
-            populateDateFilter();
-            
-            // Exibir dados no mapa (todos inicialmente)
-            filterDataByDate('all');
-        }
-        
-        // Formatar data para o padrão brasileiro (DD/MM/AAAA)
-        function formatToBrazilianDate(dateString) {
-            if (!dateString) return '';
-            
-            // Verificar se já está no formato brasileiro
-            if (dateString.includes('/')) {
-                return dateString;
-            }
-            
-            // Tentar diferentes formatos de data
-            const date = new Date(dateString);
-            if (isNaN(date.getTime())) {
-                return dateString; // Retorna original se não for uma data válida
-            }
-            
-            // Formatar para DD/MM/AAAA HH:MM:SS
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            const seconds = String(date.getSeconds()).padStart(2, '0');
-            
-            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-        }
-        
-        // Popular seletor de datas
-        function populateDateFilter() {
-            const dateFilter = document.getElementById('dateFilter');
-            dateFilter.innerHTML = '<option value="all">Todas as datas</option>';
-            
-            uniqueDates.forEach(date => {
-                const option = document.createElement('option');
-                option.value = date;
-                option.textContent = date;
-                dateFilter.appendChild(option);
-            });
-            
-            // Adicionar evento de mudança
-            dateFilter.addEventListener('change', function() {
-                filterDataByDate(this.value);
+            points.push({
+                dataHora, lat, lng, evento, velocidade, hodometro, endereco, veiculo
             });
         }
         
-        // Filtrar dados por data
-        function filterDataByDate(date) {
-            if (date === 'all') {
-                filteredData = [...vehicleData];
-            } else {
-                filteredData = vehicleData.filter(point => {
-                    if (point["Data Atualização"]) {
-                        return point["Data Atualização"].split(' ')[0] === date;
-                    }
-                    return false;
-                });
-            }
-            
-            // Exibir dados filtrados no mapa
-            displayDataOnMap();
-            
-            // Atualizar informações de resumo
-            updateSummaryInfo();
-            
-            // Exibir eventos
-            displayEvents();
+        if (points.length === 0) {
+            throw new Error("Nenhum ponto com coordenadas válidas foi extraído.");
         }
-        
-        // Obter ícone para cada tipo de evento
-        function getEventIcon(eventType) {
-            let iconHtml, iconColor;
-            
-            switch(eventType) {
-                case "Ignição Ligada":
-                    iconHtml = '<i class="fas fa-power-off"></i>';
-                    iconColor = '#28a745';
-                    break;
-                case "Movendo":
-                    iconHtml = '<i class="fas fa-car"></i>';
-                    iconColor = '#17a2b8';
-                    break;
-                case "Parado":
-                    iconHtml = '<i class="fas fa-pause-circle"></i>';
-                    iconColor = '#ffc107';
-                    break;
-                case "Ignição Desligada":
-                    iconHtml = '<i class="fas fa-power-off"></i>';
-                    iconColor = '#dc3545';
-                    break;
-                default:
-                    // Para outros eventos, não mostrar ícone
-                    return null;
-            }
-            
-            return L.divIcon({
-                className: `event-marker-${eventType.replace(/\s+/g, '-').toLowerCase()}`,
-                html: `<div class="event-marker-icon" style="background-color: ${iconColor};">${iconHtml}</div>`,
-                iconSize: [24, 24],
-                iconAnchor: [12, 12]
-            });
-        }
-        
-        // Obter ícone de direção baseado na velocidade - CORRIGIDO
-        function getDirectionIcon(point, index) {
-            // Extrair valor numérico da velocidade
-            const speedValue = extractSpeedValue(point["Velocidade"]);
-            
-            // Verificar se a velocidade é >= 1 km/h
-            if (speedValue >= 1) {
-                // Calcular direção baseado na posição atual e próxima
-                let rotation = 0;
-                
-                if (index < filteredData.length - 1) {
-                    const currentPoint = filteredData[index];
-                    const nextPoint = filteredData[index + 1];
-                    
-                    const currentLat = parseFloat(currentPoint["Latitude"]);
-                    const currentLng = parseFloat(currentPoint["Longitude"]);
-                    const nextLat = parseFloat(nextPoint["Latitude"]);
-                    const nextLng = parseFloat(nextPoint["Longitude"]);
-                    
-                    if (!isNaN(currentLat) && !isNaN(currentLng) && 
-                        !isNaN(nextLat) && !isNaN(nextLng)) {
-                        
-                        // Calcular ângulo entre os dois pontos
-                        const dx = nextLng - currentLng;
-                        const dy = nextLat - currentLat;
-                        
-                        // CORREÇÃO: Calcular o ângulo correto para a seta
-                        rotation = Math.atan2(dy, dx) * (180 / Math.PI);
-                        
-                        // A seta padrão aponta para cima (norte), então ajustamos
-                        // A rotação deve ser relativa ao norte (0° = norte)
-                        rotation = 90 - rotation;
-                        
-                        // Normalizar para 0-360
-                        if (rotation < 0) rotation += 360;
-                        if (rotation >= 360) rotation -= 360;
-                    }
-                }
-                
-                return L.divIcon({
-                    className: 'direction-marker-icon',
-                    html: `
-                        <div class="direction-marker">
-                            <i class="fas fa-arrow-up direction-arrow" style="transform: rotate(${rotation}deg);"></i>
-                        </div>
-                    `,
-                    iconSize: [20, 20],
-                    iconAnchor: [10, 10]
-                });
-            }
-            
-            return null;
-        }
-        
-        // Extrair valor numérico da velocidade
-        function extractSpeedValue(speedString) {
-            if (!speedString) return 0;
-            
-            // Remover unidades e espaços, converter para número
-            const numericValue = parseFloat(speedString.toString().replace(/[^\d,.-]/g, '').replace(',', '.'));
-            
-            return isNaN(numericValue) ? 0 : numericValue;
-        }
-        
-        // Criar conteúdo do popup
-        function createPopupContent(point) {
-            return `
-                <div class="custom-popup">
-                    <div class="popup-header">
-                        <span class="popup-event-icon">${getEventIconHtml(point["Evento"])}</span>
-                        ${point["Evento"] || "Evento"}
-                    </div>
-                    <div class="popup-content"><strong>Data/Hora:</strong> ${point["Data Atualização"] || "-"}</div>
-                    <div class="popup-content"><strong>Veículo:</strong> ${point["Veículo"] || "-"}</div>
-                    <div class="popup-content"><strong>Velocidade:</strong> ${point["Velocidade"] || "-"}</div>
-                    <div class="popup-content"><strong>Endereço:</strong> ${point["Endereço"] || "-"}</div>
-                    ${point["*Hodômetro"] ? `<div class="popup-content"><strong>Hodômetro:</strong> ${point["*Hodômetro"]}</div>` : ""}
-                </div>
-            `;
-        }
-        
-        // Obter ícone HTML para o popup
-        function getEventIconHtml(eventType) {
-            switch(eventType) {
-                case "Ignição Ligada":
-                    return '<i class="fas fa-power-off" style="color: #28a745;"></i>';
-                case "Movendo":
-                    return '<i class="fas fa-car" style="color: #17a2b8;"></i>';
-                case "Parado":
-                    return '<i class="fas fa-pause-circle" style="color: #ffc107;"></i>';
-                case "Ignição Desligada":
-                    return '<i class="fas fa-power-off" style="color: #dc3545;"></i>';
-                default:
-                    return '<i class="fas fa-map-marker-alt" style="color: #007bff;"></i>';
-            }
-        }
-        
-        // Exibir dados no mapa
-        function displayDataOnMap() {
-            // Limpar mapa
-            if (routeLayer) {
-                map.removeLayer(routeLayer);
-            }
-            
-            markers.forEach(marker => {
-                map.removeLayer(marker);
-            });
-            markers = [];
-            
-            if (filteredData.length === 0) return;
-            
-            // Criar array de coordenadas para a rota
-            const routeCoordinates = [];
-            
-            // Processar cada ponto de dados
-            filteredData.forEach((point, index) => {
-                const lat = parseFloat(point["Latitude"]);
-                const lng = parseFloat(point["Longitude"]);
-                
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    routeCoordinates.push([lat, lng]);
-                    
-                    // Determinar o tipo de evento
-                    let eventType = point["Evento"] || "";
-                    
-                    // Criar marcador apenas para os 4 tipos de eventos específicos
-                    if (eventType === "Ignição Ligada" || eventType === "Movendo" || 
-                        eventType === "Parado" || eventType === "Ignição Desligada") {
-                        
-                        const icon = getEventIcon(eventType);
-                        if (icon) {
-                            const marker = L.marker([lat, lng], { icon: icon })
-                                .bindPopup(createPopupContent(point));
-                            
-                            marker.addTo(map);
-                            markers.push(marker);
-                        }
-                    }
-                    
-                    // Adicionar marcador de direção se a velocidade for >= 1 km/h
-                    const directionIcon = getDirectionIcon(point, index);
-                    if (directionIcon) {
-                        const directionMarker = L.marker([lat, lng], { icon: directionIcon })
-                            .bindPopup(`
-                                <div class="custom-popup">
-                                    <div class="popup-header">
-                                        <i class="fas fa-arrow-up" style="color: #007bff;"></i>
-                                        Movimento
-                                    </div>
-                                    <div class="popup-content"><strong>Velocidade:</strong> ${point["Velocidade"] || "-"}</div>
-                                    <div class="popup-content"><strong>Data/Hora:</strong> ${point["Data Atualização"] || "-"}</div>
-                                </div>
-                            `);
-                        
-                        directionMarker.addTo(map);
-                        markers.push(directionMarker);
-                    }
-                }
-            });
-            
-            // Adicionar linha da rota ao mapa
-            if (routeCoordinates.length > 1) {
-                routeLayer = L.polyline(routeCoordinates, {
-                    color: 'blue',
-                    weight: 4,
-                    opacity: 0.7
-                }).addTo(map);
-                
-                // Ajustar visualização do mapa para mostrar toda a rota
-                map.fitBounds(routeLayer.getBounds());
-            }
-            
-            // Adicionar marcador de início (apenas se não houver muitos eventos)
-            if (routeCoordinates.length > 0 && markers.length < 20) {
-                const startIcon = L.divIcon({
-                    className: 'start-marker',
-                    html: '<div class="start-marker-icon"><i class="fas fa-play"></i></div>',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
-                });
-                
-                const startMarker = L.marker(routeCoordinates[0], { icon: startIcon })
-                    .bindPopup('<strong>Início da Rota</strong>')
-                    .addTo(map);
-                markers.push(startMarker);
-            }
-            
-            // Adicionar marcador de fim (apenas se não houver muitos eventos)
-            if (routeCoordinates.length > 0 && markers.length < 20) {
-                const endIcon = L.divIcon({
-                    className: 'end-marker',
-                    html: '<div class="end-marker-icon"><i class="fas fa-stop"></i></div>',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
-                });
-                
-                const endMarker = L.marker(routeCoordinates[routeCoordinates.length - 1], { icon: endIcon })
-                    .bindPopup('<strong>Fim da Rota</strong>')
-                    .addTo(map);
-                markers.push(endMarker);
-            }
-        }
-        
-        // Atualizar informações de resumo
-        function updateSummaryInfo() {
-            if (filteredData.length === 0) {
-                document.getElementById('vehicleInfo').textContent = '-';
-                document.getElementById('tripDate').textContent = '-';
-                document.getElementById('departureTime').textContent = '-';
-                document.getElementById('arrivalTime').textContent = '-';
-                document.getElementById('distance').textContent = '-';
-                return;
-            }
-            
-            const firstPoint = filteredData[0];
-            const lastPoint = filteredData[filteredData.length - 1];
-            
-            document.getElementById('vehicleInfo').textContent = firstPoint["Veículo"] || '-';
-            
-            // Se estamos filtrando por uma data específica, usar essa data
-            const dateFilter = document.getElementById('dateFilter');
-            if (dateFilter.value !== 'all') {
-                document.getElementById('tripDate').textContent = dateFilter.value;
-            } else {
-                document.getElementById('tripDate').textContent = firstPoint["Data Atualização"] ? 
-                    firstPoint["Data Atualização"].split(' ')[0] : '-';
-            }
-            
-            document.getElementById('departureTime').textContent = firstPoint["Data Atualização"] || '-';
-            document.getElementById('arrivalTime').textContent = lastPoint["Data Atualização"] || '-';
-            
-            // Calcular distância percorrida (aproximada)
-            if (firstPoint["*Hodômetro"] && lastPoint["*Hodômetro"]) {
-                const startOdometer = parseFloat(firstPoint["*Hodômetro"].toString().replace(' km', '').replace(',', '.'));
-                const endOdometer = parseFloat(lastPoint["*Hodômetro"].toString().replace(' km', '').replace(',', '.'));
-                
-                if (!isNaN(startOdometer) && !isNaN(endOdometer)) {
-                    const distance = (endOdometer - startOdometer).toFixed(2);
-                    document.getElementById('distance').textContent = `${distance} km`;
-                } else {
-                    document.getElementById('distance').textContent = '-';
-                }
-            } else {
-                document.getElementById('distance').textContent = '-';
-            }
-        }
-        
-        // Exibir eventos na barra lateral
-        function displayEvents() {
-            const eventsContainer = document.getElementById('eventsContainer');
-            const ignitionEventsContainer = document.getElementById('ignitionEventsContainer');
-            
-            eventsContainer.innerHTML = '';
-            ignitionEventsContainer.innerHTML = '';
-            
-            // Filtrar pontos com eventos
-            const eventPoints = filteredData.filter(point => point["Evento"]);
-            
-            if (eventPoints.length === 0) {
-                eventsContainer.innerHTML = '<p>Nenhum evento registrado.</p>';
-                ignitionEventsContainer.innerHTML = '<p>Nenhum evento de ignição registrado.</p>';
-                return;
-            }
-            
-            // Separar eventos de ignição dos demais
-            const ignitionEvents = eventPoints.filter(point => 
-                point["Evento"] === "Ignição Ligada" || point["Evento"] === "Ignição Desligada"
-            );
-            
-            const otherEvents = eventPoints.filter(point => 
-                point["Evento"] !== "Ignição Ligada" && point["Evento"] !== "Ignição Desligada"
-            );
-            
-            // Exibir eventos de ignição em destaque
-            if (ignitionEvents.length > 0) {
-                ignitionEvents.forEach((point, index) => {
-                    const eventItem = document.createElement('div');
-                    eventItem.className = `ignition-event-item ${point["Evento"] === "Ignição Ligada" ? "ignition-on" : "ignition-off"}`;
-                    
-                    eventItem.innerHTML = `
-                        <strong>${point["Evento"]}</strong><br>
-                        <small>${point["Data Atualização"]}</small><br>
-                        <small>${point["Endereço"] || "Endereço não disponível"}</small>
-                    `;
-                    
-                    eventItem.addEventListener('click', () => {
-                        const lat = parseFloat(point["Latitude"]);
-                        const lng = parseFloat(point["Longitude"]);
-                        
-                        if (!isNaN(lat) && !isNaN(lng)) {
-                            map.setView([lat, lng], 15);
-                            
-                            // Abrir popup do marcador correspondente
-                            markers.forEach(marker => {
-                                const markerLatLng = marker.getLatLng();
-                                if (markerLatLng.lat === lat && markerLatLng.lng === lng) {
-                                    marker.openPopup();
-                                }
-                            });
-                        }
-                    });
-                    
-                    ignitionEventsContainer.appendChild(eventItem);
-                });
-            } else {
-                ignitionEventsContainer.innerHTML = '<p>Nenhum evento de ignição registrado.</p>';
-            }
-            
-            // Exibir outros eventos
-            if (otherEvents.length > 0) {
-                otherEvents.forEach((point, index) => {
-                    const eventItem = document.createElement('div');
-                    eventItem.className = `event-item event-${getEventClass(point["Evento"])}`;
-                    
-                    eventItem.innerHTML = `
-                        <strong>${point["Evento"]}</strong><br>
-                        <small>${point["Data Atualização"]}</small><br>
-                        <small>${point["Endereço"] || "Endereço não disponível"}</small>
-                    `;
-                    
-                    eventItem.addEventListener('click', () => {
-                        const lat = parseFloat(point["Latitude"]);
-                        const lng = parseFloat(point["Longitude"]);
-                        
-                        if (!isNaN(lat) && !isNaN(lng)) {
-                            map.setView([lat, lng], 15);
-                            
-                            // Abrir popup do marcador correspondente
-                            markers.forEach(marker => {
-                                const markerLatLng = marker.getLatLng();
-                                if (markerLatLng.lat === lat && markerLatLng.lng === lng) {
-                                    marker.openPopup();
-                                }
-                            });
-                        }
-                    });
-                    
-                    eventsContainer.appendChild(eventItem);
-                });
-            } else {
-                eventsContainer.innerHTML = '<p>Nenhum outro evento registrado.</p>';
-            }
-        }
-        
-        // Obter classe CSS para o evento
-        function getEventClass(eventName) {
-            switch(eventName) {
-                case "Ignição Ligada": return "ignicao-ligada";
-                case "Movendo": return "movendo";
-                case "Parado": return "parado";
-                case "Ignição Desligada": return "ignicao-desligada";
-                default: return "";
-            }
-        }
-        
-        // Event listeners
-        document.getElementById('loadData').addEventListener('click', function() {
-            const fileInput = document.getElementById('fileInput');
-            if (fileInput.files.length > 0) {
-                processExcelFile(fileInput.files[0]);
-            } else {
-                alert('Por favor, selecione um arquivo Excel.');
+        return points;
+    }
+
+    function extractUniqueDates(points) {
+        const setDates = new Set();
+        points.forEach(p => {
+            if (p.dataHora) {
+                const d = p.dataHora.split(' ')[0];
+                if (d && d.length > 4 && (d.includes('/') || d.includes('-'))) setDates.add(d);
             }
         });
+        return Array.from(setDates).sort((a,b) => {
+            const [da,ma,aa] = a.split('/');
+            const [db,mb,ab] = b.split('/');
+            if(da && ma && aa && db && mb && ab) {
+                return new Date(aa, ma-1, da) - new Date(ab, mb-1, db);
+            }
+            return a.localeCompare(b);
+        });
+    }
+
+    function populateDateSelector(dates) {
+        const sel = document.getElementById('dateSelect');
+        sel.innerHTML = '<option value="all">📅 Todas as datas</option>';
+        dates.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d;
+            opt.textContent = d;
+            sel.appendChild(opt);
+        });
+        sel.onchange = () => filterByDate(sel.value);
+    }
+
+    function filterByDate(dateVal) {
+        if (!allPoints.length) return;
+        if (dateVal === 'all') {
+            filteredPoints = [...allPoints];
+        } else {
+            filteredPoints = allPoints.filter(p => p.dataHora && p.dataHora.startsWith(dateVal));
+        }
+        updateMapAndUI();
+    }
+
+    // ================================================================
+    //  FUNÇÕES DE VISUALIZAÇÃO
+    // ================================================================
+    function getSpeedNumber(speedStr) {
+        if (!speedStr) return 0;
+        const num = parseFloat(speedStr.toString().replace(/[^0-9.,-]/g, '').replace(',', '.'));
+        return isNaN(num) ? 0 : num;
+    }
+
+    function getAngle(p1, p2) {
+        if (!p2) return 0;
+        const dx = p2.lng - p1.lng;
+        const dy = p2.lat - p1.lat;
+        let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        angle = 90 - angle;
+        if (angle < 0) angle += 360;
+        return angle;
+    }
+
+    function getEventIcon(evento, velocidade) {
+        let bg = "#6c757d", iconHtml = '<i class="fas fa-map-marker-alt"></i>';
+        const ev = evento ? evento.trim() : "";
+        const speed = getSpeedNumber(velocidade);
         
-        // Inicializar o mapa quando a página carregar
-        window.onload = initMap;
-    </script>
+        if (ev === "Ignição Ligada" || ev === "Ligada") { 
+            bg = "#2b8c4a"; 
+            iconHtml = '<i class="fas fa-power-off"></i>'; 
+        } else if (ev === "Ignição Desligada" || ev === "Desligada") { 
+            bg = "#d9534f"; 
+            iconHtml = '<i class="fas fa-power-off"></i>'; 
+        } else if (ev === "Movendo" || (speed >= 1 && ev !== "Parado")) { 
+            bg = "#17a2b8"; 
+            iconHtml = '<i class="fas fa-car"></i>'; 
+        } else if (ev === "Parado" || speed === 0) { 
+            bg = "#ffc107"; 
+            iconHtml = '<i class="fas fa-pause-circle"></i>'; 
+        }
+        
+        return L.divIcon({
+            className: "custom-marker",
+            html: `<div class="marker-icon" style="background:${bg};">${iconHtml}</div>`,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+        });
+    }
+
+    // Função para criar o popup da seta azul (direção) com data/hora + velocidade
+    function getDirectionPopupContent(point, nextPoint, velocidade) {
+        let html = `<div style="min-width: 180px;">`;
+        html += `<strong><i class="fas fa-location-arrow" style="color:#1f6392;"></i> Movimento</strong><br>`;
+        html += `<i class="fas fa-tachometer-alt"></i> <strong>Velocidade:</strong> ${velocidade}<br>`;
+        
+        // Data e hora do ponto atual
+        if (point.dataHora) {
+            html += `<i class="fas fa-calendar-alt"></i> <strong>Data/Hora:</strong> ${point.dataHora}<br>`;
+        }
+        
+        // Hodômetro se disponível
+        if (point.hodometro && point.hodometro !== "") {
+            html += `<i class="fas fa-charging-station"></i> <strong>Hodômetro:</strong> ${point.hodometro}<br>`;
+        }
+        
+        // Endereço resumido
+        if (point.endereco && point.endereco.length > 0) {
+            let addr = point.endereco.length > 60 ? point.endereco.substring(0, 60) + "..." : point.endereco;
+            html += `<i class="fas fa-map-pin"></i> <strong>Local:</strong> ${addr}<br>`;
+        }
+        
+        html += `<hr style="margin: 5px 0;"><small><i class="fas fa-arrow-right"></i> Direção do deslocamento</small>`;
+        html += `</div>`;
+        return html;
+    }
+
+    function getDirectionIcon(angle, point, nextPoint, velocidade) {
+        // Cria o ícone da seta
+        const icon = L.divIcon({
+            className: "custom-marker",
+            html: `<div class="direction-marker"><i class="fas fa-arrow-up arrow" style="transform: rotate(${angle}deg);"></i></div>`,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11]
+        });
+        
+        // Cria o marcador com popup customizado (contém data/hora)
+        const marker = L.marker([point.lat, point.lng], { icon: icon });
+        
+        // Conteúdo do popup com data/hora + velocidade
+        const popupContent = getDirectionPopupContent(point, nextPoint, velocidade);
+        marker.bindPopup(popupContent, { maxWidth: 260, className: 'custom-popup' });
+        
+        return marker;
+    }
+
+    function clearMapLayers() {
+        if (routePolyline) map.removeLayer(routePolyline);
+        markersLayer.forEach(m => map.removeLayer(m));
+        markersLayer = [];
+    }
+
+    function updateMapAndUI() {
+        clearMapLayers();
+        
+        if (!filteredPoints.length) {
+            document.getElementById('totalPontos').innerText = '0';
+            document.getElementById('veiculoInfo').innerText = '-';
+            document.getElementById('dataViagem').innerText = '-';
+            document.getElementById('horaSaida').innerText = '-';
+            document.getElementById('horaChegada').innerText = '-';
+            document.getElementById('distanciaKm').innerText = '-';
+            document.getElementById('eventsContainer').innerHTML = '<div class="small-text">Nenhum evento no período selecionado.</div>';
+            document.getElementById('ignitionContainer').innerHTML = '<div class="small-text">Sem dados de ignição.</div>';
+            return;
+        }
+
+        const first = filteredPoints[0];
+        const last = filteredPoints[filteredPoints.length - 1];
+        
+        document.getElementById('veiculoInfo').innerText = first.veiculo || "Rogério Borgo";
+        document.getElementById('dataViagem').innerText = first.dataHora ? first.dataHora.split(' ')[0] : '-';
+        document.getElementById('horaSaida').innerText = first.dataHora || '-';
+        document.getElementById('horaChegada').innerText = last.dataHora || '-';
+        document.getElementById('totalPontos').innerText = filteredPoints.length;
+
+        let distancia = '-';
+        if (first.hodometro && last.hodometro) {
+            let startVal = parseFloat(first.hodometro.replace(/[^\d,.-]/g, '').replace(',', '.'));
+            let endVal = parseFloat(last.hodometro.replace(/[^\d,.-]/g, '').replace(',', '.'));
+            if (!isNaN(startVal) && !isNaN(endVal)) distancia = (endVal - startVal).toFixed(2) + " km";
+        }
+        document.getElementById('distanciaKm').innerText = distancia;
+
+        // Desenhar rota
+        const latlngs = filteredPoints.map(p => [p.lat, p.lng]);
+        routePolyline = L.polyline(latlngs, { color: '#2c7cb6', weight: 4, opacity: 0.8 }).addTo(map);
+        map.fitBounds(routePolyline.getBounds());
+
+        // Adicionar marcadores de eventos
+        for (let i = 0; i < filteredPoints.length; i++) {
+            const p = filteredPoints[i];
+            const ev = p.evento || "";
+            const speedVal = getSpeedNumber(p.velocidade);
+
+            if (ev === "Ignição Ligada" || ev === "Ignição Desligada" || ev === "Movendo" || ev === "Parado" || 
+                (speedVal > 0 && !ev) || (speedVal === 0 && !ev)) {
+                let tipoEvento = ev;
+                if (!tipoEvento) tipoEvento = (speedVal > 0 ? "Movendo" : "Parado");
+                const icon = getEventIcon(tipoEvento, p.velocidade);
+                const marker = L.marker([p.lat, p.lng], { icon }).bindPopup(`
+                    <b>${tipoEvento}</b><br>
+                    <small>${p.dataHora || ''}</small><br>
+                    ${p.endereco ? p.endereco.substring(0, 70) : ''}<br>
+                    🚀 ${p.velocidade} | 📍 ${p.hodometro || ''}
+                `);
+                marker.addTo(map);
+                markersLayer.push(marker);
+            }
+
+            // SETA AZUL (DIREÇÃO) - AGORA COM DATA/HORA NO POPUP
+            if (speedVal >= 1 && i < filteredPoints.length - 1) {
+                const nextPoint = filteredPoints[i + 1];
+                const angle = getAngle(p, nextPoint);
+                const directionMarker = getDirectionIcon(angle, p, nextPoint, p.velocidade);
+                directionMarker.addTo(map);
+                markersLayer.push(directionMarker);
+            }
+        }
+
+        // Marcadores de início e fim
+        if (filteredPoints.length >= 2) {
+            const startIcon = L.divIcon({ 
+                className: "custom-marker", 
+                html: `<div class="marker-icon" style="background:#2b8c4a;"><i class="fas fa-play"></i></div>`, 
+                iconSize: [28,28], 
+                iconAnchor: [14,14] 
+            });
+            const endIcon = L.divIcon({ 
+                className: "custom-marker", 
+                html: `<div class="marker-icon" style="background:#d9534f;"><i class="fas fa-stop"></i></div>`, 
+                iconSize: [28,28], 
+                iconAnchor: [14,14] 
+            });
+            const startM = L.marker([filteredPoints[0].lat, filteredPoints[0].lng], { icon: startIcon }).bindPopup("🚀 INÍCIO DA ROTA");
+            const endM = L.marker([filteredPoints[filteredPoints.length-1].lat, filteredPoints[filteredPoints.length-1].lng], { icon: endIcon }).bindPopup("🏁 FIM DA ROTA");
+            startM.addTo(map); 
+            endM.addTo(map);
+            markersLayer.push(startM, endM);
+        }
+
+        // Eventos de ignição
+        const ignitionEvents = filteredPoints.filter(p => p.evento === "Ignição Ligada" || p.evento === "Ignição Desligada");
+        const movementEvents = filteredPoints.filter(p => p.evento === "Movendo" || p.evento === "Parado");
+
+        const ignDiv = document.getElementById('ignitionContainer');
+        const movDiv = document.getElementById('eventsContainer');
+
+        if (ignitionEvents.length === 0) {
+            ignDiv.innerHTML = '<div class="small-text">Nenhum evento de ignição encontrado.</div>';
+        } else {
+            ignDiv.innerHTML = '';
+            ignitionEvents.forEach(ev => {
+                const div = document.createElement('div');
+                div.className = `ignition-item ${ev.evento === "Ignição Ligada" ? "ignition-on" : "ignition-off"}`;
+                div.innerHTML = `<strong>${ev.evento}</strong><br><small>${ev.dataHora}</small><div class="small-text">${ev.endereco?.slice(0, 70) || ''}</div>`;
+                div.onclick = () => map.setView([ev.lat, ev.lng], 16);
+                ignDiv.appendChild(div);
+            });
+        }
+
+        if (movementEvents.length === 0) {
+            movDiv.innerHTML = '<div class="small-text">Nenhum evento de movimento/parada.</div>';
+        } else {
+            movDiv.innerHTML = '';
+            movementEvents.forEach(ev => {
+                const div = document.createElement('div');
+                const cls = ev.evento === "Movendo" ? "event-movendo" : "event-parado";
+                div.className = `event-item ${cls}`;
+                div.innerHTML = `<strong>${ev.evento}</strong> • ${ev.velocidade}<br><small>${ev.dataHora}</small><div class="small-text">${ev.endereco?.slice(0, 70) || ''}</div>`;
+                div.onclick = () => map.setView([ev.lat, ev.lng], 16);
+                movDiv.appendChild(div);
+            });
+        }
+    }
+
+    // ================================================================
+    //  EVENTO DE CARREGAMENTO DO ARQUIVO
+    // ================================================================
+    document.getElementById('loadBtn').addEventListener('click', () => {
+        const fileInput = document.getElementById('excelInput');
+        if (!fileInput.files.length) {
+            showToast("Selecione um arquivo Excel (.xlsx) primeiro", true);
+            return;
+        }
+        
+        const file = fileInput.files[0];
+        showToast("Lendo arquivo...");
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const pontos = parseExcelData(workbook);
+                allPoints = pontos.sort((a, b) => (a.dataHora || "").localeCompare(b.dataHora || ""));
+                
+                if (allPoints.length === 0) {
+                    throw new Error("Nenhum ponto válido após processamento.");
+                }
+                
+                uniqueDates = extractUniqueDates(allPoints);
+                populateDateSelector(uniqueDates);
+                filterByDate('all');
+                
+                showToast(`✅ Carregado! ${allPoints.length} pontos, ${uniqueDates.length} datas`, false);
+            } catch (err) {
+                console.error(err);
+                showToast("❌ Erro: " + err.message, true);
+            }
+        };
+        reader.onerror = () => showToast("Erro ao ler o arquivo", true);
+        reader.readAsArrayBuffer(file);
+    });
+
+    // Iniciar mapa
+    initMap();
+</script>
 </body>
 </html>
